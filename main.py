@@ -2,6 +2,7 @@ import osmnx as ox
 import networkx as nx
 import os
 import time
+import geopandas as gpd
 
 source_lat, source_lon = 8.5686, 76.8731
 dest_lat, dest_lon = 8.52202892500963, 76.926448394559
@@ -51,5 +52,10 @@ print(f"Time taken: {after - before} seconds")
 # plot the shortest path
 fig, ax = ox.plot_graph_route(G, route_nodes, route_color="r", 
                               route_linewidth=6, node_size=0)
+
+gpd_route = ox.routing.route_to_gdf(G, route_nodes)
+
+# save to route.geojson
+gpd_route.to_file("route.geojson")
 
 
