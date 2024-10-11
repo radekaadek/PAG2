@@ -3,15 +3,15 @@ import networkx as nx
 import os
 import time
 
-source_lat, source_lon = 8.5686, 76.8731
-destination_lat, destination_lon = 8.52202892500963, 76.926448394559
+kzh_lat, kzh_lon = 8.5686, 76.8731
+mdcl_lat, mdcl_lon = 8.52202892500963, 76.926448394559
 
 if not os.path.exists('graph.xml'):
     print("Downloading graph")
-    north = max(source_lat, destination_lat)
-    south = min(source_lat, destination_lat)
-    east = max(source_lon, destination_lon)
-    west = min(source_lon, destination_lon)
+    north = max(kzh_lat, mdcl_lat)
+    south = min(kzh_lat, mdcl_lat)
+    east = max(kzh_lon, mdcl_lon)
+    west = min(kzh_lon, mdcl_lon)
     G = ox.graph.graph_from_bbox(bbox=(north, south, east, west),
                                  network_type='drive')
     ox.io.save_graph_xml(G, 'graph.xml')
@@ -25,8 +25,8 @@ print(f"Number of edges: {len(G.edges)}")
 
 
 # fetch the nearest node w.r.t coordinates
-orig = ox.distance.nearest_nodes(G, source_lat, source_lon)
-dest = ox.distance.nearest_nodes(G, destination_lat, destination_lon)
+orig = ox.distance.nearest_nodes(G, kzh_lon, kzh_lat)
+dest = ox.distance.nearest_nodes(G, mdcl_lon, mdcl_lat)
 
 def heur(n1, n2):
     n1x = G.nodes[n1]['x']
