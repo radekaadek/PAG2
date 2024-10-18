@@ -7,7 +7,9 @@ import geopandas as gpd
 source_lat, source_lon = 8.5686, 76.8731
 dest_lat, dest_lon = 8.52202892500963, 76.926448394559
 
-if not os.path.exists('graph.xml'):
+file_name = "graph.ml"
+
+if not os.path.exists(file_name):
     print("Downloading graph")
     north = max(source_lat, dest_lat)
     south = min(source_lat, dest_lat)
@@ -15,10 +17,10 @@ if not os.path.exists('graph.xml'):
     west = min(source_lon, dest_lon)
     G = ox.graph.graph_from_bbox(bbox=(north, south, east, west),
                                  network_type='drive')
-    ox.io.save_graph_xml(G, 'graph.xml')
+    ox.io.save_graphml(G, file_name)
 else:
     print("Loading graph")
-    G = ox.graph_from_xml('graph.xml')
+    G = ox.io.load_graphml(file_name)
 
 print(f"Number of nodes: {len(G.nodes)}")
 print(f"Number of edges: {len(G.edges)}")
@@ -38,7 +40,9 @@ def heur(n1, n2):
     sourcey = source_lat
     destx = dest_lon
     desty = dest_lat
-    return ((n1x - sourcex)**2 + (n1y - sourcey)**2 + (n2x - destx)**2 + (n2y - desty)**2)**0.5
+    # distance from n1 to dest minus distance from n2 to source
+    # osmnx.distance.great_circle(lat1, lon1, lat2, lon2, earth_radius=6371009)
+    return ox.distance.great_circle(n1x, n1y, destx, desty) - ox.distance.great_circle(n2x, n2y, sourcex, sourcey)
 
 
 
