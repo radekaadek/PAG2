@@ -36,13 +36,10 @@ def heur(n1, n2):
     n1y = G.nodes[n1]['y']
     n2x = G.nodes[n2]['x']
     n2y = G.nodes[n2]['y']
-    sourcex = source_lon
-    sourcey = source_lat
     destx = dest_lon
     desty = dest_lat
-    # distance from n1 to dest minus distance from n2 to source
-    # osmnx.distance.great_circle(lat1, lon1, lat2, lon2, earth_radius=6371009)
-    return ox.distance.great_circle(n1x, n1y, destx, desty) - ox.distance.great_circle(n2x, n2y, sourcex, sourcey)
+    # distance from n1 to dest minus distance from n2 to dest
+    return ox.distance.great_circle(n1x, n1y, destx, desty) - ox.distance.great_circle(n2x, n2y, destx, desty)
 
 
 
