@@ -4,8 +4,8 @@ import os
 import time
 import geopandas as gpd
 
-source_lat, source_lon = 8.5686, 76.8731
-dest_lat, dest_lon = 8.52202892500963, 76.926448394559
+source_lat, source_lon = 52.275284,20.938292
+dest_lat, dest_lon = 52.1204480,21.2464419
 
 file_name = "graph.ml"
 
@@ -49,14 +49,20 @@ route_nodes = nx.astar_path(G, orig, dest, weight="length", heuristic=heur)
 after = time.perf_counter()
 print(f"Time taken: {after - before} seconds")
 
+before = time.perf_counter()
+route_nodes2 = nx.dijkstra_path(G, orig, dest, weight="length")
+after = time.perf_counter()
+print(f"Time taken: {after - before} seconds - Dijkstra")
+
 
 # plot the shortest path
 fig, ax = ox.plot_graph_route(G, route_nodes, route_color="r", 
                               route_linewidth=6, node_size=0)
+    
+print(set(route_nodes).difference(set(route_nodes2)))
 
 gpd_route = ox.routing.route_to_gdf(G, route_nodes)
 
+
 # save to route.geojson
 gpd_route.to_file("route.geojson")
-
-
