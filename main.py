@@ -55,7 +55,7 @@ after = time.perf_counter()
 print(f"Time taken: {after - before} seconds - Dijkstra")
 
 # find quickest path
-G = ox.routing.add_edge_speeds(G)
+G = ox.routing.add_edge_speeds(G, fallback=30)
 G = ox.routing.add_edge_travel_times(G)
 before = time.perf_counter()
 route_nodes3 = nx.astar_path(G, orig, dest, weight="travel_time", heuristic=heur)
@@ -64,7 +64,7 @@ print(f"Time taken: {after - before} seconds - A*, travel_time")
 
 
 # plot the shortest path
-fig, ax = ox.plot_graph_route(G, route_nodes3, route_color="r", 
+fig, ax = ox.plot_graph_route(G, route_nodes, route_color="r", 
                               route_linewidth=6, node_size=0)
     
 # print(set(route_nodes).difference(set(route_nodes2)))
