@@ -3,6 +3,7 @@ import networkx as nx
 import os
 import time
 import geopandas as gpd
+import matplotlib.pyplot as plt
 
 source_lat, source_lon = 52.275284,20.938292
 dest_lat, dest_lon = 52.1204480,21.2464419
@@ -62,10 +63,30 @@ route_nodes3 = nx.astar_path(G, orig, dest, weight="travel_time", heuristic=heur
 after = time.perf_counter()
 print(f"Time taken: {after - before} seconds - A*, travel_time")
 
+# Find range
+reachable_nodes = nx.single_source_dijkstra_path_length(G, orig, weight="travel_time", cutoff=100)
+reachable_subgraph = G.subgraph(reachable_nodes.keys())
+
+# plot the reachable subgraph
+fig, ax = plt.subplots()
+
+# Draw full graph in the background
+ox.plot_graph(G, ax=ax, show=False, close=False, node_color="gray", edge_color="lightgray", bgcolor="white", node_size=1, edge_linewidth=0.5)
+
+# Overlay the reachable subgraph
+ox.plot_graph(reachable_subgraph, ax=ax, show=False, close=False, node_color="red", edge_color="orange", node_size=2, edge_linewidth=1)
+
+# Highlight the start node
+start_node_x, start_node_y = G.nodes[orig]["x"], G.nodes[orig]["y"]
+ax.plot(start_node_x, start_node_y, color="blue", marker="o", markersize=3)
+
+ax.set_xlim((source_lon-0.025, source_lon+0.025))
+ax.set_ylim((source_lat-0.025, source_lat+0.025))
+plt.show()
 
 # plot the shortest path
-fig, ax = ox.plot_graph_route(G, route_nodes, route_color="r", 
-                              route_linewidth=6, node_size=0)
+# fig, ax = ox.plot_graph_route(G, route_nodes, route_color="r", 
+#                               route_linewidth=6, node_size=0)
     
 # print(set(route_nodes).difference(set(route_nodes2)))
 
