@@ -11,10 +11,10 @@ file_name = "graph.ml"
 
 if not os.path.exists(file_name):
     print("Downloading graph")
-    north = max(source_lat, dest_lat)
-    south = min(source_lat, dest_lat)
-    east = max(source_lon, dest_lon)
-    west = min(source_lon, dest_lon)
+    north = max(source_lat, dest_lat)+0.1
+    south = min(source_lat, dest_lat)-0.1
+    east = max(source_lon, dest_lon)+0.1
+    west = min(source_lon, dest_lon)-0.1
     G = ox.graph.graph_from_bbox(bbox=(north, south, east, west),
                                  network_type='drive')
     ox.io.save_graphml(G, file_name)
@@ -47,19 +47,27 @@ def heur(n1, n2):
 before = time.perf_counter()
 route_nodes = nx.astar_path(G, orig, dest, weight="length", heuristic=heur)
 after = time.perf_counter()
-print(f"Time taken: {after - before} seconds")
+print(f"Time taken: {after - before} seconds - A*, length")
 
 before = time.perf_counter()
 route_nodes2 = nx.dijkstra_path(G, orig, dest, weight="length")
 after = time.perf_counter()
 print(f"Time taken: {after - before} seconds - Dijkstra")
 
+# find quickest path
+G = ox.routing.add_edge_speeds(G)
+G = ox.routing.add_edge_travel_times(G)
+before = time.perf_counter()
+route_nodes3 = nx.astar_path(G, orig, dest, weight="travel_time", heuristic=heur)
+after = time.perf_counter()
+print(f"Time taken: {after - before} seconds - A*, travel_time")
+
 
 # plot the shortest path
-fig, ax = ox.plot_graph_route(G, route_nodes, route_color="r", 
+fig, ax = ox.plot_graph_route(G, route_nodes3, route_color="r", 
                               route_linewidth=6, node_size=0)
     
-print(set(route_nodes).difference(set(route_nodes2)))
+# print(set(route_nodes).difference(set(route_nodes2)))
 
 gpd_route = ox.routing.route_to_gdf(G, route_nodes)
 
