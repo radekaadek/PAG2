@@ -5,24 +5,14 @@ import time
 import geopandas as gpd
 import matplotlib.pyplot as plt
 
-source_lat, source_lon = 52.275284,20.938292
-dest_lat, dest_lon = 52.1204480,21.2464419
-
-# source_lat, source_lon = 52.169616, 21.202680
-# dest_lat, dest_lon = 52.136302, 21.017951
-
 file_name = "graph.ml"
 location = "Mazowieckie, Poland"
 
 if not os.path.exists(file_name):
     print("Downloading graph")
-    # north = max(source_lat, dest_lat)+0.1
-    # south = min(source_lat, dest_lat)-0.1
-    # east = max(source_lon, dest_lon)+0.1
-    # west = min(source_lon, dest_lon)-0.1
-    # G = ox.graph.graph_from_bbox(bbox=(north, south, east, west),
-    #                              network_type='drive')
     G = ox.graph_from_place(location, network_type='drive')
+    G = ox.routing.add_edge_speeds(G, fallback=30)
+    G = ox.routing.add_edge_travel_times(G) # adds travel time (seconds) to each edge
     ox.io.save_graphml(G, file_name)
 else:
     print("Loading graph")
@@ -30,10 +20,6 @@ else:
 
 print(f"Number of nodes: {len(G.nodes)}")
 print(f"Number of edges: {len(G.edges)}")
-
-# fetch the nearest node w.r.t coordinates
-orig = ox.distance.nearest_nodes(G, source_lon, source_lat)
-dest = ox.distance.nearest_nodes(G, dest_lon, dest_lat)
 
 def heur(n1, n2):
     n1x = G.nodes[n1]['x']
@@ -47,9 +33,19 @@ def heur_travel_time(n1, n2):
     n1y = G.nodes[n1]['y']
     n2x = G.nodes[n2]['x']
     n2y = G.nodes[n2]['y']
-    # multiplied by Magic number - time needed to travel 1 meter at 50km/h
-    return ox.distance.great_circle(n1x, n1y, n2x, n2y)*0.072 
-   
+    # multiplied by Magic number - time needed to travel 1 meter at 100km/h
+    return ox.distance.great_circle(n1x, n1y, n2x, n2y)*0.036
+
+source_lat, source_lon = 52.275284,20.938292
+# dest_lat, dest_lon = 52.1204480,21.2464419
+dest_lat, dest_lon = 51.39465, 21.20062
+
+# source_lat, source_lon = 52.169616, 21.202680
+# dest_lat, dest_lon = 52.136302, 21.017951
+
+# fetch the nearest node w.r.t coordinates
+orig = ox.distance.nearest_nodes(G, source_lon, source_lat)
+dest = ox.distance.nearest_nodes(G, dest_lon, dest_lat)
 
 # find shortest path
 before = time.perf_counter()
@@ -65,8 +61,6 @@ print(f"Time taken: {after - before} seconds - A*, length")
 # print(set(route_nodes).difference(set(route_nodes2))) # dijkstra vs astar difference
 
 # find quickest path
-G = ox.routing.add_edge_speeds(G, fallback=30)
-G = ox.routing.add_edge_travel_times(G) # adds travel time (seconds) to each edge
 before = time.perf_counter()
 route_nodes3 = nx.astar_path(G, orig, dest, weight="travel_time", heuristic=heur_travel_time)
 after = time.perf_counter()
@@ -105,12 +99,12 @@ ox.plot_graph_route(G, route_nodes3, ax=ax1, route_color="red", route_linewidth=
 
 plt.show()
     
-# save to route.geojson
-gpd_route = ox.routing.route_to_gdf(G, route_nodes)
-gpd_route.to_file("route.geojson")
+# # save to route.geojson
+# gpd_route = ox.routing.route_to_gdf(G, route_nodes)
+# gpd_route.to_file("route.geojson")
 
-gpd_route = ox.routing.route_to_gdf(G, route_nodes3)
-gpd_route.to_file("route3.geojson")
+# gpd_route = ox.routing.route_to_gdf(G, route_nodes3)
+# gpd_route.to_file("route3.geojson")
 
 # # save to range.geojson
 # gpd_range = ox.graph_to_gdfs(reachable_subgraph, nodes=False, edges=True)
