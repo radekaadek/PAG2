@@ -16,7 +16,7 @@ def load_graph(network_type: str) -> nx.Graph:
     ox.io.save_graphml(G, file_name)
     return G
 
-G_drive = load_graph(network_type='drive')
+G = load_graph(network_type='drive')
 
 def heur(n1, n2):
     n1x = G.nodes[n1]['x']
@@ -36,8 +36,7 @@ def heur_travel_time(n1, n2):
 app = FastAPI()
 
 @app.get("/shortest_path")
-def get_path(lat1: float, lon1: float, lat2: float, lon2: float):
-    G = G_drive
+def get_path(lat1: float, lon1: float, lat2: float, lon2: float) -> str | dict:
     orig = ox.distance.nearest_nodes(G, lon1, lat1)
     dest = ox.distance.nearest_nodes(G, lon2, lat2)
     route_nodes = nx.astar_path(G, orig, dest, weight="length", heuristic=heur)
@@ -49,8 +48,7 @@ def get_path(lat1: float, lon1: float, lat2: float, lon2: float):
         return f.read()
 
 @app.get("/quickest_path")
-def get_quickest_path(lat1: float, lon1: float, lat2: float, lon2: float):
-    G = G_drive
+def get_quickest_path(lat1: float, lon1: float, lat2: float, lon2: float) -> str | dict:
     orig = ox.distance.nearest_nodes(G, lon1, lat1)
     dest = ox.distance.nearest_nodes(G, lon2, lat2)
     route_nodes = nx.astar_path(G, orig, dest, weight="travel_time", heuristic=heur_travel_time)
