@@ -2,3 +2,4 @@ osmnx
 geopandas
 matplotlib
 scikit-learn
+fastapi[standard]
