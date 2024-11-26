@@ -1,10 +1,12 @@
 import osmnx as ox
 import networkx as nx
-import os
-import time
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse, FileResponse
+import os
+from fastapi.staticfiles import StaticFiles
+
 
 file_name = "graph.ml"
 location = "Warszawa, Poland"
@@ -37,24 +39,69 @@ app = FastAPI()
 
 @app.get("/shortest_path")
 def get_path(lat1: float, lon1: float, lat2: float, lon2: float) -> str | dict:
-    orig = ox.distance.nearest_nodes(G, lon1, lat1)
-    dest = ox.distance.nearest_nodes(G, lon2, lat2)
-    route_nodes = nx.astar_path(G, orig, dest, weight="length", heuristic=heur)
-    if len(route_nodes) < 2:
-        return {}
-    gpd_route = ox.routing.route_to_gdf(G, route_nodes)
-    gpd_route.to_file("route.geojson")
-    with open("route.geojson", "r") as f:
-        return f.read()
+    try:
+        orig = ox.distance.nearest_nodes(G, lon1, lat1)
+        dest = ox.distance.nearest_nodes(G, lon2, lat2)
+        route_nodes = nx.astar_path(G, orig, dest, weight="length", heuristic=heur)
+        if len(route_nodes) < 2:
+            return {}
+        # Get route coordinates
+        route_coords = [
+            (G.nodes[node]["y"], G.nodes[node]["x"]) for node in route_nodes
+        ]
+
+        # Return route as a GeoJSON-like structure
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[lon, lat] for lat, lon in route_coords],
+                    },
+                    "properties": {"distance_meters": sum(ox.utils_graph.get_route_edge_attributes(G, route_nodes, 'length'))}
+                }
+            ],
+        }
+    except Exception as e:
+        return {"error": str(e)}
+        
 
 @app.get("/quickest_path")
 def get_quickest_path(lat1: float, lon1: float, lat2: float, lon2: float) -> str | dict:
-    orig = ox.distance.nearest_nodes(G, lon1, lat1)
-    dest = ox.distance.nearest_nodes(G, lon2, lat2)
-    route_nodes = nx.astar_path(G, orig, dest, weight="travel_time", heuristic=heur_travel_time)
-    if len(route_nodes) < 2:
-        return {}
-    gpd_route = ox.routing.route_to_gdf(G, route_nodes)
-    gpd_route.to_file("route.geojson")
-    with open("route.geojson", "r") as f:
-        return f.read()
+    try:
+        orig = ox.distance.nearest_nodes(G, lon1, lat1)
+        dest = ox.distance.nearest_nodes(G, lon2, lat2)
+        route_nodes = nx.astar_path(G, orig, dest, weight="travel_time", heuristic=heur_travel_time)
+        if len(route_nodes) < 2:
+            return {}
+                # Get route coordinates
+        route_coords = [
+            (G.nodes[node]["y"], G.nodes[node]["x"]) for node in route_nodes
+        ]
+
+        # Return route as a GeoJSON-like structure
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[lon, lat] for lat, lon in route_coords],
+                    },
+                    "properties": {"distance_meters": sum(ox.utils_graph.get_route_edge_attributes(G, route_nodes, 'length'))}
+                }
+            ],
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+# Serve static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve the HTML file
+@app.get("/")
+def read_root():
+    return FileResponse(os.path.join("static", "index.html"))

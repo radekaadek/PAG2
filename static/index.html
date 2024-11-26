@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Routing Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <style>
+        #map {
+            height: 100vh;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="controls">
+        <h3>Routing Options</h3>
+        <label for="start-lat">Start Latitude:</label>
+        <input type="text" id="start-lat" placeholder="52.2297" /><br>
+        <label for="start-lon">Start Longitude:</label>
+        <input type="text" id="start-lon" placeholder="21.0122" /><br>
+        <label for="end-lat">End Latitude:</label>
+        <input type="text" id="end-lat" placeholder="52.4064" /><br>
+        <label for="end-lon">End Longitude:</label>
+        <input type="text" id="end-lon" placeholder="16.9252" /><br>
+        <button id="shortest-path">Get Shortest Path</button>
+        <button id="quickest-path">Get Quickest Path</button>
+    </div>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([52.2297, 21.0122], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Layers for routes
+        const routeLayer = L.geoJSON().addTo(map);
+
+        // API base URL
+        const apiBaseUrl = ""; // Change to your server address if different 
+
+        // Event handler for fetching shortest path
+        document.getElementById('shortest-path').addEventListener('click', async () => {
+            const startLat = document.getElementById('start-lat').value;
+            const startLon = document.getElementById('start-lon').value;
+            const endLat = document.getElementById('end-lat').value;
+            const endLon = document.getElementById('end-lon').value;
+
+            const url = `${apiBaseUrl}/shortest_path?lat1=${startLat}&lon1=${startLon}&lat2=${endLat}&lon2=${endLon}`;
+            await fetchRoute(url);
+        });
+
+        // Event handler for fetching quickest path
+        document.getElementById('quickest-path').addEventListener('click', async () => {
+            const startLat = document.getElementById('start-lat').value;
+            const startLon = document.getElementById('start-lon').value;
+            const endLat = document.getElementById('end-lat').value;
+            const endLon = document.getElementById('end-lon').value;
+
+            const url = `${apiBaseUrl}/quickest_path?lat1=${startLat}&lon1=${startLon}&lat2=${endLat}&lon2=${endLon}`;
+            await fetchRoute(url);
+        });
+
+        // Function to fetch and display route
+        async function fetchRoute(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    alert('Failed to fetch route');
+                    return;
+                }
+
+                const geojson = await response.json();
+                routeLayer.clearLayers();
+                routeLayer.addData(geojson);
+                map.fitBounds(routeLayer.getBounds());
+            } catch (error) {
+                console.error('Error fetching route:', error);
+                alert('Error fetching route. Check console for details.');
+            }
+        }
+    </script>
+</body>
+</html>
