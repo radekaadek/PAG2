@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, FileResponse
 import os
 from fastapi.staticfiles import StaticFiles
+import alphashape
+from shapely.geometry import mapping
 
 
 file_name = "graph.ml"
@@ -60,7 +62,7 @@ def get_path(lat1: float, lon1: float, lat2: float, lon2: float) -> str | dict:
                         "type": "LineString",
                         "coordinates": [[lon, lat] for lat, lon in route_coords],
                     },
-                    "properties": {"distance_meters": sum(ox.utils_graph.get_route_edge_attributes(G, route_nodes, 'length'))}
+                    "properties": {"distance_meters": sum(ox.utils_graph.get_route_edge_attributes(G, route_nodes, 'length')), "time_minutes": ((x:=sum(ox.utils_graph.get_route_edge_attributes(G, route_nodes, 'travel_time')))//60), "time_seconds": x%60}
                 }
             ],
         }
@@ -91,10 +93,40 @@ def get_quickest_path(lat1: float, lon1: float, lat2: float, lon2: float) -> str
                         "type": "LineString",
                         "coordinates": [[lon, lat] for lat, lon in route_coords],
                     },
-                    "properties": {"distance_meters": sum(ox.utils_graph.get_route_edge_attributes(G, route_nodes, 'length'))}
+                    "properties": {"distance_meters": sum(ox.utils_graph.get_route_edge_attributes(G, route_nodes, 'length')), "time_minutes": ((x:=sum(ox.utils_graph.get_route_edge_attributes(G, route_nodes, 'travel_time')))//60), "time_seconds": x%60}
                 }
             ],
         }
+    except Exception as e:
+        return {"error": str(e)}
+    
+@app.get("/range")
+def get_range(lat1: float, lon1: float, range: float) -> str | dict:
+    try:
+        orig = ox.distance.nearest_nodes(G, lon1, lat1)
+        reachable_nodes = nx.single_source_dijkstra_path(G, orig, weight="travel_time", cutoff=range)
+        reachable_subgraph = G.subgraph(reachable_nodes.keys())
+        points = []
+        for node in reachable_subgraph.nodes():
+            x, y = G.nodes[node]['x'], G.nodes[node]['y']
+            points.append((x, y))
+
+        alpha_shape = alphashape.alphashape(points, alpha=300)
+
+        # Convert the alpha shape (a shapely Polygon) to GeoJSON format
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": mapping(alpha_shape),  # `mapping` converts the polygon to GeoJSON format
+                    "properties": {
+                        "alpha_value": 300  # Include additional properties if needed
+                    }
+                }
+            ]
+        }
+        return geojson
     except Exception as e:
         return {"error": str(e)}
 

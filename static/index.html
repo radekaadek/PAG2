@@ -19,7 +19,24 @@
             padding: 10px;
             border-radius: 5px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            margin: 5px;
         }
+        .context-menu {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            width: 100px;
+            height: 65px;
+            z-index: 2000;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        img.huechange { filter: hue-rotate(120deg); }
+        img.huechange2 { filter: hue-rotate(250deg); }
     </style>
 </head>
 <body>
@@ -27,54 +44,164 @@
     <div class="controls">
         <h3>Routing Options</h3>
         <label for="start-lat">Start Latitude:</label>
-        <input type="text" id="start-lat" placeholder="52.2297" /><br>
+        <input type="text" id="start-lat" /><br>
         <label for="start-lon">Start Longitude:</label>
-        <input type="text" id="start-lon" placeholder="21.0122" /><br>
+        <input type="text" id="start-lon" /><br>
         <label for="end-lat">End Latitude:</label>
-        <input type="text" id="end-lat" placeholder="52.4064" /><br>
+        <input type="text" id="end-lat" /><br>
         <label for="end-lon">End Longitude:</label>
-        <input type="text" id="end-lon" placeholder="16.9252" /><br>
-        <button id="shortest-path">Get Shortest Path</button>
-        <button id="quickest-path">Get Quickest Path</button>
+        <input type="text" id="end-lon" /><br>
+        <button id="path">Get Path</button>
+        <h3>Range Options</h3>
+        <label for="range-lat">Latitude:</label>
+        <input type="text" id="range-lat" name="range-lat"><br>
+        <label for="range-lon">Longitude:</label>
+        <input type="text" id="range-lon" name="range-lon"><br>
+        <label for="range-distance">Range (minutes):</label>
+        <input type="text" id="range-distance" name="range-distance"><br>
+        <button id="get-range">Get Range</button>
     </div>
+
+
     <script>
         // Initialize map
         const map = L.map('map').setView([52.2297, 21.0122], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
-
-        // Layers for routes
-        const routeLayer = L.geoJSON().addTo(map);
 
         // API base URL
         const apiBaseUrl = ""; // Change to your server address if different 
 
-        // Event handler for fetching shortest path
-        document.getElementById('shortest-path').addEventListener('click', async () => {
+        let contextMenu;
+        let startMarker = null;
+        let endMarker = null;
+        let rangeMarker = null;
+        
+        // Add context menu functionality
+        map.on('contextmenu', (event) => {
+            if (contextMenu) {
+                map.getContainer().removeChild(contextMenu);
+            }
+
+            contextMenu = document.createElement('div');
+            contextMenu.className = 'context-menu';
+            contextMenu.style.left = `${event.containerPoint.x}px`;
+            contextMenu.style.top = `${event.containerPoint.y}px`;
+
+            contextMenu.innerHTML = `
+                <button id="set-start">Set as Start</button><br>
+                <button id="set-end">Set as End</button>
+                <button id="set-range">Set as Range</button>
+            `;
+
+            map.getContainer().appendChild(contextMenu);
+
+            document.getElementById('set-start').addEventListener('click', () => {
+                document.getElementById('start-lat').value = event.latlng.lat;
+                document.getElementById('start-lon').value = event.latlng.lng;
+                if (startMarker) {
+                    startMarker.setLatLng(event.latlng);
+                } else {
+                    startMarker = L.marker(event.latlng, { title: "Start Point" }).addTo(map);
+                }
+                map.getContainer().removeChild(contextMenu);
+                contextMenu = null;
+
+                // Check if end point is set and fetch path if both are set
+                if (document.getElementById('end-lat').value && document.getElementById('end-lon').value) {
+                    fetchPaths();
+                }
+            });
+
+            document.getElementById('set-end').addEventListener('click', () => {
+                document.getElementById('end-lat').value = event.latlng.lat;
+                document.getElementById('end-lon').value = event.latlng.lng;
+                if (endMarker) {
+                    endMarker.setLatLng(event.latlng);
+                } else {
+                    endMarker = L.marker(event.latlng, { title: "End Point" }).addTo(map);
+                    endMarker._icon.classList.add("huechange");
+                }
+                map.getContainer().removeChild(contextMenu);
+                contextMenu = null;
+
+                // Check if start point is set and fetch path if both are set
+                if (document.getElementById('start-lat').value && document.getElementById('start-lon').value) {
+                    fetchPaths();
+                }
+            });
+
+            document.getElementById('set-range').addEventListener('click', () => {
+                document.getElementById('range-lat').value = event.latlng.lat;
+                document.getElementById('range-lon').value = event.latlng.lng;
+                if (rangeMarker) {
+                    rangeMarker.setLatLng(event.latlng);
+                } else {
+                    rangeMarker = L.marker(event.latlng, { title: "Range Point" }).addTo(map);
+                    rangeMarker._icon.classList.add("huechange2")
+                }
+                map.getContainer().removeChild(contextMenu);
+                contextMenu = null;
+
+                const rangeDistance = document.getElementById('range-distance').value;
+                const url = `${apiBaseUrl}/range?lat1=${event.latlng.lat}&lon1=${event.latlng.lng}&range=${rangeDistance*60}`;
+                if (rangeDistance){
+                    fetchRange(url, rangeLayer);
+                }
+            });
+        });
+
+        map.on('click', () => {
+            if (contextMenu) {
+                map.getContainer().removeChild(contextMenu);
+                contextMenu = null;
+            }
+        });
+     
+        // Define layers for quickest and shortest paths
+        const quickestPathLayer = L.geoJSON(null, { style: { color: 'red', weight: 4 } }).addTo(map);
+        const shortestPathLayer = L.geoJSON(null, { style: { color: 'blue', weight: 3 } }).addTo(map);
+
+        // Function to fetch paths
+        async function fetchPaths() {
             const startLat = document.getElementById('start-lat').value;
             const startLon = document.getElementById('start-lon').value;
             const endLat = document.getElementById('end-lat').value;
             const endLon = document.getElementById('end-lon').value;
 
-            const url = `${apiBaseUrl}/shortest_path?lat1=${startLat}&lon1=${startLon}&lat2=${endLat}&lon2=${endLon}`;
-            await fetchRoute(url);
-        });
+            if (startMarker) {
+                startMarker.setLatLng([startLat, startLon]);
+            } else {
+                startMarker = L.marker([startLat, startLon], { title: "Start Point" }).addTo(map);
+            }
 
-        // Event handler for fetching quickest path
-        document.getElementById('quickest-path').addEventListener('click', async () => {
-            const startLat = document.getElementById('start-lat').value;
-            const startLon = document.getElementById('start-lon').value;
-            const endLat = document.getElementById('end-lat').value;
-            const endLon = document.getElementById('end-lon').value;
+            if (endMarker) {
+                endMarker.setLatLng([endLat, endLon]);
+            } else {
+                endMarker = L.marker([endLat, endLon], { title: "End Point" }).addTo(map);
+                endMarker._icon.classList.add("huechange");
+            }
 
-            const url = `${apiBaseUrl}/quickest_path?lat1=${startLat}&lon1=${startLon}&lat2=${endLat}&lon2=${endLon}`;
-            await fetchRoute(url);
-        });
+            // Clear existing layers
+            quickestPathLayer.clearLayers();
+            shortestPathLayer.clearLayers();
+
+            // Fetch and display the quickest path
+            const url1 = `${apiBaseUrl}/quickest_path?lat1=${startLat}&lon1=${startLon}&lat2=${endLat}&lon2=${endLon}`;
+            await fetchRoute(url1, quickestPathLayer);
+
+            // Fetch and display the shortest path
+            const url2 = `${apiBaseUrl}/shortest_path?lat1=${startLat}&lon1=${startLon}&lat2=${endLat}&lon2=${endLon}`;
+            await fetchRoute(url2, shortestPathLayer);
+        }
+
+        // Event handler for fetching paths
+        document.getElementById('path').addEventListener('click', fetchPaths);
 
         // Function to fetch and display route
-        async function fetchRoute(url) {
+        async function fetchRoute(url, layer) {
             try {
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -83,14 +210,76 @@
                 }
 
                 const geojson = await response.json();
-                routeLayer.clearLayers();
-                routeLayer.addData(geojson);
-                map.fitBounds(routeLayer.getBounds());
+                layer.addData(geojson);
+                        // Extract distance and time from properties
+        const properties = geojson.features[0]?.properties;
+        if (properties) {
+            const distance = (properties.distance_meters / 1000).toFixed(2); // Convert meters to kilometers
+            const time_m = properties.time_minutes.toFixed(0); // Time in minutes
+            const time_s = properties.time_seconds.toFixed(0); // Time in seconds
+
+            // Bind tooltip to display time and distance
+            layer.bindTooltip(`Distance: ${distance} km<br>Time: ${time_m} min, ${time_s} sec`, {
+                direction: 'auto', // Tooltip direction
+            });
+        }
+
+                // Fit the map bounds to include the new layer
+                map.fitBounds(layer.getBounds());
             } catch (error) {
                 console.error('Error fetching route:', error);
                 alert('Error fetching route. Check console for details.');
             }
         }
+
+        const rangeLayer = L.geoJSON(null, { style: { color: 'green', weight: 2 } }).addTo(map);
+
+        document.getElementById('get-range').addEventListener('click', async () => {
+            const rangeLat = document.getElementById('range-lat').value;
+            const rangeLon = document.getElementById('range-lon').value;
+            const rangeDistance = document.getElementById('range-distance').value;
+
+            if (rangeLat === '' || rangeLon === '' || rangeDistance === '' || isNaN(rangeLat) || isNaN(rangeLon) || isNaN(rangeDistance)) {
+                alert('Please enter valid range coordinates and distance');
+                return;
+            }
+
+            if (rangeMarker) {
+                rangeMarker.setLatLng([rangeLat, rangeLon]);
+            } else {
+                rangeMarker = L.marker([rangeLat, rangeLon], { title: "Range Point" }).addTo(map);
+                rangeMarker._icon.classList.add("huechange2")
+            }
+
+            if (!rangeDistance || rangeDistance <= 0) {
+                alert('Please enter a valid range distance');
+                return;
+            }
+            const url = `${apiBaseUrl}/range?lat1=${rangeLat}&lon1=${rangeLon}&range=${rangeDistance*60}`;
+            await fetchRange(url, rangeLayer);
+        });
+
+        async function fetchRange(url, layer) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                alert('Failed to fetch range');
+                return;
+            }
+
+            const geojson = await response.json();
+            layer.clearLayers();
+            layer.addData(geojson);
+
+            // Fit the map bounds to include the new layer
+            map.fitBounds(layer.getBounds());
+        } catch (error) {
+            console.error('Error fetching range:', error);
+            alert('Error fetching range. Check console for details.');
+        }
+    }
+
     </script>
 </body>
 </html>
+
